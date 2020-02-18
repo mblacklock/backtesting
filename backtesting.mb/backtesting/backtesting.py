@@ -442,7 +442,7 @@ class _Broker:
             self.pl = np.tile(np.nan, length)
 
     def __init__(self, *, data, cash, commission, margin, trade_on_close, length):
-        #assert 0 < cash, "cash should be >0, is {}".format(cash)
+        assert 0 < cash, "cash should be >0, is {}".format(cash)
         assert 0 <= commission < .1, "commission should be between 0-10%, is {}".format(commission)
         assert 0 < margin <= 1, "margin should be between 0 and 1, is {}".format(margin)
         self._data = data  # type: _Data
@@ -494,7 +494,7 @@ class _Broker:
 
         i, price = self._get_market_price(price)
 
-        position = 1. #float(self._cash * self._leverage / (price * (1 + self._commission))) # update this to be R based not all money
+        position = float((self._cash * self._leverage *.01 / abs(price - sl)) * (1 - self._commission) ) # update this to be R based not all money
         self._position = position if is_long else -position
         self._position_open_price = price
         self._position_open_i = i
@@ -567,11 +567,11 @@ class _Broker:
         self.log.equity[i] = equity
 
         # Hovever, if negative, set all to 0 and stop the simulation
-##        if equity < 0:
-##            self._close_position()
-##            self._cash = 0
-##            self.log.equity[i:] = 0
-##            raise _OutOfMoneyError
+        if equity < 0:
+            self._close_position()
+            self._cash = 0
+            self.log.equity[i:] = 0
+            raise _OutOfMoneyError
 
 
 class Backtest:
@@ -588,7 +588,7 @@ class Backtest:
                  data: pd.DataFrame,
                  strategy: type(Strategy),
                  *,
-                 cash: float = 0,
+                 cash: float = 10000,
                  commission: float = .0,
                  margin: float = 1.,
                  trade_on_close=False
@@ -880,15 +880,18 @@ class Backtest:
         df['Exit Price'] = broker.log.exit_price
         df['P/L'] = broker.log.pl
         pl = df['P/L']
-
+        
         df['Entry of Exit'] = pd.Series(df['Entry Price'].dropna().tolist()[:-1], index=df['Exit Price'].dropna().index, name='Entry of Exit')
         df['Stop Loss'] = broker.log.stop_loss
         df['Stop of Exit'] = pd.Series(df['Stop Loss'].dropna().tolist()[:-1], index=df['Exit Price'].dropna().index, name='Stop of Exit')
-        
+
+        df['R multiple'] = r_mult = pl / ( abs( df['Exit Position'] ) * abs( df['Entry of Exit'] - df['Stop of Exit'] ))
+
         df['P/L Price'] = np.sign(pl.dropna()) * abs(df['Entry of Exit'] - df['Exit Price'])
-        df['R multiple'] = df['P/L Price'] / abs( df['Entry of Exit'] - df['Stop of Exit'] )
+        #df['R multiple'] = df['P/L Price'] / abs( df['Entry of Exit'] - df['Stop of Exit'] )
         df['Returns'] = returns = pl.dropna() / equity[exits.dropna().values.astype(int)]
         df['Drawdown'] = dd = 1 - equity / np.maximum.accumulate(equity)
+        df['Drawdown R'] = dd_r = 1 - np.cumsum(r_mult) / np.maximum.accumulate(np.cumsum(r_mult))
         dd_dur, dd_peaks = _drawdown_duration_peaks(dd, data.index)
         df['Drawdown Duration'] = dd_dur
         dd_dur = df['Drawdown Duration']
@@ -907,10 +910,10 @@ class Backtest:
         s.loc['Duration'] = s.End - s.Start
         exits = df['Exit Entry']  # After reindexed
         durations = (exits.dropna().index - df.index[exits.dropna().values.astype(int)]).to_series()
-        #s.loc['Exposure [%]'] = np.nan_to_num(durations.sum() / (s.loc['Duration'] or np.nan) * 100)
-        #s.loc['Equity Final [$]'] = equity[-1]
-        #s.loc['Equity Peak [$]'] = equity.max()
-        #s.loc['Return [%]'] = (equity[-1] - equity[0]) / equity[0] * 100
+        s.loc['Exposure [%]'] = np.nan_to_num(durations.sum() / (s.loc['Duration'] or np.nan) * 100)
+        s.loc['Equity Final [$]'] = equity[-1]
+        s.loc['Equity Peak [$]'] = equity.max()
+        s.loc['Return [%]'] = (equity[-1] - equity[0]) / equity[0] * 100
         c = data.Close.values
         s.loc['Buy & Hold Return [%]'] = abs(c[-1] - c[0]) / c[0] * 100  # long OR short
         #s.loc['Max. Drawdown [%]'] = max_dd = -np.nan_to_num(dd.max()) * 100

@@ -3,6 +3,8 @@ from backtesting.lib import crossover
 
 from backtesting.test import SMA, GOOG
 
+import matplotlib.pyplot as plt
+import numpy as np
 
 class SmaCross(Strategy):
     n1 = 10
