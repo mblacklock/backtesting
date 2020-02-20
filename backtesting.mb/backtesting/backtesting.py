@@ -885,16 +885,18 @@ class Backtest:
         df['Stop Loss'] = broker.log.stop_loss
         df['Stop of Exit'] = pd.Series(df['Stop Loss'].dropna().tolist()[:-1], index=df['Exit Price'].dropna().index, name='Stop of Exit')
 
-        df['R multiple'] = r_mult = pl / ( abs( df['Exit Position'] ) * abs( df['Entry of Exit'] - df['Stop of Exit'] ))
-
-        df['P/L Price'] = np.sign(pl.dropna()) * abs(df['Entry of Exit'] - df['Exit Price'])
-        #df['R multiple'] = df['P/L Price'] / abs( df['Entry of Exit'] - df['Stop of Exit'] )
+        df['R multiple'] = pl / ( abs( df['Exit Position'] ) * abs( df['Entry of Exit'] - df['Stop of Exit'] ))
+        r_mult = df['R multiple'].dropna()
+        
         df['Returns'] = returns = pl.dropna() / equity[exits.dropna().values.astype(int)]
         df['Drawdown'] = dd = 1 - equity / np.maximum.accumulate(equity)
-        df['Drawdown R'] = dd_r = 1 - np.cumsum(r_mult) / np.maximum.accumulate(np.cumsum(r_mult))
+        df['Drawdown R'] = dd_r = np.maximum.accumulate(np.cumsum(r_mult)) - np.cumsum(r_mult)
+        
         dd_dur, dd_peaks = _drawdown_duration_peaks(dd, data.index)
         df['Drawdown Duration'] = dd_dur
         dd_dur = df['Drawdown Duration']
+
+        dd_r_dur, dd_r_peaks = _drawdown_duration_peaks(dd_r.dropna().values, data.index)
 
         df.index = data.index
 
@@ -916,9 +918,11 @@ class Backtest:
         s.loc['Return [%]'] = (equity[-1] - equity[0]) / equity[0] * 100
         c = data.Close.values
         s.loc['Buy & Hold Return [%]'] = abs(c[-1] - c[0]) / c[0] * 100  # long OR short
-        #s.loc['Max. Drawdown [%]'] = max_dd = -np.nan_to_num(dd.max()) * 100
-        #s.loc['Avg. Drawdown [%]'] = -dd_peaks.mean() * 100
-        #s.loc['Max. Drawdown Duration'] = _round_timedelta(dd_dur.max())
+        s.loc['Max. Drawdown [%]'] = max_dd = -np.nan_to_num(dd.max()) * 100
+        s.loc['Avg. Drawdown [%]'] = -dd_peaks.mean() * 100
+        s.loc['Max. Drawdown R'] = max_dd = - dd_r.max()
+        s.loc['Avg. Drawdown R'] = - dd_r_peaks.mean()
+        s.loc['Max. Drawdown Duration'] = _round_timedelta(dd_dur.max())
         s.loc['Avg. Drawdown Duration'] = _round_timedelta(dd_dur.mean())
         s.loc['# Trades'] = n_trades = pl.count()
         s.loc['Win Rate [%]'] = win_rate = np.nan if not n_trades else (pl > 0).sum() / n_trades * 100  # noqa: E501
@@ -939,6 +943,8 @@ class Backtest:
         s.loc['R min'] =  min(df['R multiple'].dropna())
         s.loc['R max'] =  max(df['R multiple'].dropna())
         s.loc['R stdev'] =  np.std(df['R multiple'].dropna())
+        s.loc['Mean R loss'] = r_mult.agg(lambda x: x[x<0].mean())
+        s.loc['Mean R win'] = r_mult.agg(lambda x: x[x>0].mean())
         s.loc['Expectancy VT'] =  np.mean(df['R multiple'].dropna())
         s.loc['Expectunity'] =  np.mean(df['R multiple'].dropna()) * n_trades / float((s.End - s.Start).days / 365)
         s.loc['SQN VT'] =  np.mean(df['R multiple'].dropna()) / np.std(df['R multiple'].dropna()) * np.sqrt(n_trades)

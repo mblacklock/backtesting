@@ -27,12 +27,9 @@ bt = Backtest(GOOG, SmaCross, cash=10000, commission=.002)
 
 output = bt.run()
 
-bt.plot()
+#bt.plot()
 print(output)
-
 
 # python -m idlelib.idle
 
-# drawdowns
-# equity
 # plots
