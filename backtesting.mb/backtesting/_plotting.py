@@ -321,6 +321,30 @@ return this.labels[index] || "";
         fig.yaxis.formatter = NumeralTickFormatter(format="0.[00]%")
         return fig
 
+    def _plot_r_mult_section():
+        """R multiple markers section"""
+        fig = new_indicator_figure(y_axis_label="R multiple")
+        fig.add_layout(Span(location=0, dimension='width', line_color='#666666',
+                            line_dash='dashed', line_width=1))
+        position = trade_data['Exit Position'].dropna()
+        r_mult = trade_data['R multiple'].dropna()
+        returns_long = r_mult.copy()
+        returns_short = r_mult.copy()
+        returns_long[position < 0] = np.nan
+        returns_short[position > 0] = np.nan
+        trade_source.add(returns_long, 'returns_long')
+        trade_source.add(returns_short, 'returns_short')
+        
+        MARKER_SIZE = 13
+        r1 = fig.scatter('index', 'returns_long', source=trade_source, fill_color=cmap,
+                         marker='triangle', line_color='black', size=MARKER_SIZE)
+        r2 = fig.scatter('index', 'returns_short', source=trade_source, fill_color=cmap,
+                         marker='inverted_triangle', line_color='black', size=MARKER_SIZE)
+        set_tooltips(fig, [("R", "@returns_long{+0.[00]}")], vline=False, renderers=[r1])
+        set_tooltips(fig, [("R", "@returns_short{+0.[00]}")], vline=False, renderers=[r2])
+        fig.yaxis.formatter = NumeralTickFormatter(format="0.[00]")
+        return fig
+
     def _plot_volume_section():
         """Volume section"""
         fig = new_indicator_figure(y_axis_label="Volume")
@@ -506,7 +530,7 @@ return this.labels[index] || "";
         figs_above_ohlc.append(_plot_drawdown_section())
 
     if plot_pl:
-        figs_above_ohlc.append(_plot_pl_section())
+        figs_above_ohlc.append(_plot_r_mult_section())
 
     if plot_volume:
         fig_volume = _plot_volume_section()

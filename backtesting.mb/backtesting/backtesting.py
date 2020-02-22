@@ -870,12 +870,20 @@ class Backtest:
                     i = j
             return pd.Series(durations), pd.Series(peaks)
 
+        def _long_short(position, r_mult):
+            long = r_mult.copy()
+            short = r_mult.copy()
+            long[position < 0] = np.nan
+            short[position > 0] = np.nan
+            return long, short
+
         df = pd.DataFrame()
         df['Equity'] = pd.Series(broker.log.equity).bfill().fillna(broker._cash)
         equity = df.Equity.values
         df['Exit Entry'] = broker.log.exit_entry
         exits = df['Exit Entry']
         df['Exit Position'] = broker.log.exit_position
+        position = df['Exit Position'].dropna()
         df['Entry Price'] = broker.log.entry_price
         df['Exit Price'] = broker.log.exit_price
         df['P/L'] = broker.log.pl
@@ -887,6 +895,7 @@ class Backtest:
 
         df['R multiple'] = pl / ( abs( df['Exit Position'] ) * abs( df['Entry of Exit'] - df['Stop of Exit'] ))
         r_mult = df['R multiple'].dropna()
+        df['R multiple of longs'], df['R multiple of shorts'] = _long_short(position, r_mult)
         
         df['Returns'] = returns = pl.dropna() / equity[exits.dropna().values.astype(int)]
         df['Drawdown'] = dd = 1 - equity / np.maximum.accumulate(equity)
@@ -918,28 +927,21 @@ class Backtest:
         s.loc['Return [%]'] = (equity[-1] - equity[0]) / equity[0] * 100
         c = data.Close.values
         s.loc['Buy & Hold Return [%]'] = abs(c[-1] - c[0]) / c[0] * 100  # long OR short
-        s.loc['Max. Drawdown [%]'] = max_dd = -np.nan_to_num(dd.max()) * 100
-        s.loc['Avg. Drawdown [%]'] = -dd_peaks.mean() * 100
+        
         s.loc['Max. Drawdown R'] = max_dd = - dd_r.max()
         s.loc['Avg. Drawdown R'] = - dd_r_peaks.mean()
         s.loc['Max. Drawdown Duration'] = _round_timedelta(dd_dur.max())
         s.loc['Avg. Drawdown Duration'] = _round_timedelta(dd_dur.mean())
         s.loc['# Trades'] = n_trades = pl.count()
-        s.loc['Win Rate [%]'] = win_rate = np.nan if not n_trades else (pl > 0).sum() / n_trades * 100  # noqa: E501
-        #s.loc['Best Trade [%]'] = returns.max() * 100
-        #s.loc['Worst Trade [%]'] = returns.min() * 100
-        mean_return = returns.mean()
-        #s.loc['Avg. Trade [%]'] = mean_return * 100
+        s.loc['Win Rate [%]'] = win_rate = np.nan if not n_trades else (pl > 0).sum() / n_trades * 100  # noqa: E5
         s.loc['Max. Trade Duration'] = _round_timedelta(durations.max())
         s.loc['Avg. Trade Duration'] = _round_timedelta(durations.mean())
-        #s.loc['Expectancy [%]'] = ((returns[returns > 0].mean() * win_rate - returns[returns < 0].mean() * (100 - win_rate)))
         pl = pl.dropna()
-        #s.loc['SQN'] = np.sqrt(n_trades) * pl.mean() / pl.std()
-        #s.loc['Sharpe Ratio'] = mean_return / (returns.std() or np.nan)
-        #s.loc['Sortino Ratio'] = mean_return / (returns[returns < 0].std() or np.nan)
-        #s.loc['Calmar Ratio'] = mean_return / ((-max_dd / 100) or np.nan)
+        
         s.loc['----------'] = '----------'
         s.loc['System R multiple'] =  sum(df['R multiple'].dropna())
+        s.loc['R of longs'] = sum(df['R multiple of longs'].dropna())
+        s.loc['R of shorts'] = sum(df['R multiple of shorts'].dropna())
         s.loc['R min'] =  min(df['R multiple'].dropna())
         s.loc['R max'] =  max(df['R multiple'].dropna())
         s.loc['R stdev'] =  np.std(df['R multiple'].dropna())
