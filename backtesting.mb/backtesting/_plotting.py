@@ -77,7 +77,6 @@ def plot(*, results, df, indicators, filename='', plot_width=None,
     """
     Like much of GUI code everywhere, this is a mess.
     """
-
     # We need to reset global Bokeh state, otherwise subsequent runs of
     # plot() contain some previous run's cruft data (was noticed when
     # TestPlot.test_file_size() test was failing).
@@ -373,7 +372,7 @@ return this.labels[index] || "";
 
         orig_df['_width'] = 1
         from .lib import OHLCV_AGG
-        df2 = orig_df.resample(resample_rule, label='left').agg(dict(OHLCV_AGG, _width='count'))
+        df2 = orig_df#.resample(resample_rule, label='left').agg(dict(OHLCV_AGG, _width='count'))
 
         # Check if resampling was downsampling; error on upsampling
         orig_freq = _data_period(orig_df)
@@ -536,8 +535,8 @@ return this.labels[index] || "";
         fig_volume = _plot_volume_section()
         figs_below_ohlc.append(fig_volume)
 
-    if superimpose and is_datetime_index:
-        _plot_superimposed_ohlc()
+    #if superimpose and is_datetime_index:
+        #_plot_superimposed_ohlc()
 
     ohlc_bars = _plot_ohlc()
     _plot_ohlc_trades()

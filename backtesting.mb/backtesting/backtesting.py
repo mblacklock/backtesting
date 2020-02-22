@@ -494,7 +494,7 @@ class _Broker:
 
         i, price = self._get_market_price(price)
 
-        position = float((self._cash * self._leverage *.01 / abs(price - sl)) * (1 - self._commission) ) # update this to be R based not all money
+        position = float((self._cash * self._leverage *.01 / abs(price - sl)) * (1 - self._commission) ) # based on 1% risk for current equity
         self._position = position if is_long else -position
         self._position_open_price = price
         self._position_open_i = i
@@ -537,16 +537,11 @@ class _Broker:
                 self._close_position()
                 orders._close = False
 
-            # First make the entry order, if hit
-            if entry:
-                if entry is _MARKET_PRICE or high > orders._entry > low:
-                    self._open_position(entry, is_long, sl)
-
             # Check if stop-loss threshold was hit
             if sl and self._position:
-                price = (sl if low <= sl <= high else              # hit
-                         open if (is_long and open < sl or         # gapped hit
-                                  not is_long and open > sl) else
+                price = (#sl if low <= sl <= high else              # hit
+                         open if (is_long and open <= sl or         # gapped hit
+                                  not is_long and open >= sl) else
                          None)                                     # not hit
                 if price is not None:
                     self._close_position(price)
@@ -561,6 +556,11 @@ class _Broker:
                 if price is not None:
                     self._close_position(price)
                     self.orders.cancel()
+
+            # First make the entry order, if hit
+            if entry:
+                if entry is _MARKET_PRICE or high > orders._entry > low:
+                    self._open_position(entry, is_long, sl)
 
         # Log account equity for the equity curve
         equity = self.equity
@@ -888,10 +888,18 @@ class Backtest:
         df['Exit Price'] = broker.log.exit_price
         df['P/L'] = broker.log.pl
         pl = df['P/L']
-        
-        df['Entry of Exit'] = pd.Series(df['Entry Price'].dropna().tolist()[:-1], index=df['Exit Price'].dropna().index, name='Entry of Exit')
+
         df['Stop Loss'] = broker.log.stop_loss
-        df['Stop of Exit'] = pd.Series(df['Stop Loss'].dropna().tolist()[:-1], index=df['Exit Price'].dropna().index, name='Stop of Exit')
+
+        if len(df['Entry Price'].dropna()) != len(df['Exit Price'].dropna()):
+            ent_exit = df['Entry Price'].dropna().tolist()[:-1]
+            stop_exit = df['Stop Loss'].dropna().tolist()[:-1]
+        else:
+            ent_exit = df['Entry Price'].dropna().tolist()
+            stop_exit = df['Stop Loss'].dropna().tolist()
+        
+        df['Entry of Exit'] = pd.Series(ent_exit, index=df['Exit Price'].dropna().index, name='Entry of Exit')
+        df['Stop of Exit'] = pd.Series(stop_exit, index=df['Exit Price'].dropna().index, name='Stop of Exit')
 
         df['R multiple'] = pl / ( abs( df['Exit Position'] ) * abs( df['Entry of Exit'] - df['Stop of Exit'] ))
         r_mult = df['R multiple'].dropna()
@@ -906,7 +914,7 @@ class Backtest:
         dd_dur = df['Drawdown Duration']
 
         dd_r_dur, dd_r_peaks = _drawdown_duration_peaks(dd_r.dropna().values, data.index)
-
+        
         df.index = data.index
 
         def _round_timedelta(value, _period=_data_period(df)):
