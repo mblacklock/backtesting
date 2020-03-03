@@ -384,6 +384,11 @@ class Position:
         return self._broker._position_open_price
 
     @property
+    def one_r(self):
+        """Initial risk of trade"""
+        return self._broker._position_one_r
+
+    @property
     def open_time(self):
         """Data index value at which the position was opened."""
         i = self._broker._position_open_i
@@ -399,6 +404,15 @@ class Position:
     def pl(self):
         """Profit (positive) or loss (negative) of current position."""
         return self._pl(self._broker._data.Close[-1])
+
+    def _r_mult(self, price):
+        pl, size, one_r = self._pl(price), self.size, self._broker._position_one_r
+        return pl / abs(size * one_r)
+
+    @property
+    def r_mult(self):
+        """R multiple of current position."""
+        return self._r_mult(self._broker._data.Close[-1])
 
     @property
     def pl_pct(self):
@@ -440,6 +454,11 @@ class _Broker:
             self.stop_loss = np.tile(np.nan, length)
             self.exit_price = np.tile(np.nan, length)
             self.pl = np.tile(np.nan, length)
+            self.one_r = np.tile(np.nan, length)
+            self.r_mult = np.tile(np.nan, length)
+            self.r_mult_end = np.tile(np.nan, length)
+            self.r_mult_temp = np.tile(np.nan, length)
+            self.trade_r_mults = pd.DataFrame()
 
     def __init__(self, *, data, cash, commission, margin, trade_on_close, length):
         assert 0 < cash, "cash should be >0, is {}".format(cash)
@@ -453,6 +472,7 @@ class _Broker:
         self._position = 0
         self._position_open_price = 0
         self._position_open_i = None
+        self._position_one_r = 0
         self.log = self._Log(length)
         self.position = Position(self)
         self.orders = Orders(self)
@@ -501,6 +521,10 @@ class _Broker:
 
         self.log.entry_price[i] = price
         self.log.stop_loss[i] = sl # need to update this based on entry price (pass a function as a variable)
+        one_r = abs(price - sl)
+        self._position_one_r = one_r
+        self.log.one_r[i] = one_r
+        self.log.r_mult[i] = one_r
 
     def _close_position(self, price=None):
         if not self._position:
@@ -508,8 +532,16 @@ class _Broker:
 
         i, price = self._get_market_price(price)
         pl = self.position._pl(price)
+        r_multiple = self.position._r_mult(price)
 
         self.log.pl[i] = pl
+        
+        self.log.r_mult_end[i] = r_multiple
+        self.log.r_mult[i] = r_multiple
+        self.log.r_mult_temp[i] = r_multiple
+        self.log.trade_r_mults[len(self.log.trade_r_mults.columns)] = self.log.r_mult_temp
+        self.log.r_mult_temp = np.tile(np.nan, self.log.r_mult_temp.size)
+        
         self.log.exit_entry[i] = self._position_open_i
         self.log.exit_price[i] = price
         self.log.exit_position[i] = self._position
@@ -518,7 +550,7 @@ class _Broker:
         self._position = 0
         self._position_open_price = 0
         self._position_open_i = None
-
+        
     @property
     def equity(self):
         return self._cash + self.position.pl
@@ -532,7 +564,7 @@ class _Broker:
             is_long = orders._is_long
             entry, sl, tp = orders._entry, orders._sl, orders._tp
             open, high, low = data.Open[-1], data.High[-1], data.Low[-1]
-
+    
             if entry or orders._close:
                 self._close_position()
                 orders._close = False
@@ -561,6 +593,12 @@ class _Broker:
             if entry:
                 if entry is _MARKET_PRICE or high > orders._entry > low:
                     self._open_position(entry, is_long, sl)
+
+            if self._position:
+            # Log R multiple
+                r_mult = self.position.r_mult
+                self.log.r_mult[i] = r_mult
+                self.log.r_mult_temp[i] = r_mult
 
         # Log account equity for the equity curve
         equity = self.equity
@@ -890,18 +928,12 @@ class Backtest:
         pl = df['P/L']
 
         df['Stop Loss'] = broker.log.stop_loss
+        df['One R'] = broker.log.one_r
+        df['R multiple'] = broker.log.r_mult_end 
+        df['R multiples'] = broker.log.r_mult
 
-        if len(df['Entry Price'].dropna()) != len(df['Exit Price'].dropna()):
-            ent_exit = df['Entry Price'].dropna().tolist()[:-1]
-            stop_exit = df['Stop Loss'].dropna().tolist()[:-1]
-        else:
-            ent_exit = df['Entry Price'].dropna().tolist()
-            stop_exit = df['Stop Loss'].dropna().tolist()
+        dr = broker.log.trade_r_mults
         
-        df['Entry of Exit'] = pd.Series(ent_exit, index=df['Exit Price'].dropna().index, name='Entry of Exit')
-        df['Stop of Exit'] = pd.Series(stop_exit, index=df['Exit Price'].dropna().index, name='Stop of Exit')
-
-        df['R multiple'] = pl / ( abs( df['Exit Position'] ) * abs( df['Entry of Exit'] - df['Stop of Exit'] ))
         r_mult = df['R multiple'].dropna()
         df['R multiple of longs'], df['R multiple of shorts'] = _long_short(position, r_mult)
         
@@ -915,7 +947,7 @@ class Backtest:
 
         dd_r_dur, dd_r_peaks = _drawdown_duration_peaks(dd_r.dropna().values, data.index)
         
-        df.index = data.index
+        df.index = dr.index = data.index
 
         def _round_timedelta(value, _period=_data_period(df)):
             if not isinstance(value, pd.Timedelta):
@@ -963,6 +995,7 @@ class Backtest:
 
         s.loc['_strategy'] = strategy
         s._trade_data = df  # Private API
+        s._trade_r_multiples = dr # R multiples through each trade
         return s
 
     def plot(self, *, results: pd.Series = None, filename=None, plot_width=None,

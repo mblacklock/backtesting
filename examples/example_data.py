@@ -10,13 +10,13 @@ import csv
 import os
 
 data_path = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..', 'data'))
-filename= os.path.join(data_path, 'ETHBTC_1h.csv')
+filename= os.path.join(data_path, 'test.csv')
 
 DATA = pd.read_csv(filename, index_col='Time', parse_dates=True)
 
 class SmaCross(Strategy):
     n1 = 5
-    n2 = 30
+    n2 = 7
     stop = 0.05
 
     def init(self):

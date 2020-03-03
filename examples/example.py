@@ -20,7 +20,8 @@ class SmaCross(Strategy):
         if crossover(self.sma1, self.sma2):
             self.buy(sl = 0.9 * price)
         elif crossover(self.sma2, self.sma1):
-            self.sell(sl = 1.1 * price)
+            self.position.close()
+            #self.sell(sl = 1.1 * price)
 
 
 bt = Backtest(GOOG, SmaCross, cash=10000, commission=.002)
@@ -28,6 +29,11 @@ bt = Backtest(GOOG, SmaCross, cash=10000, commission=.002)
 output = bt.run()
 
 #bt.plot()
-print(output)
-
+##print(output)
+r_end = output._trade_data['R multiple'].dropna()
+#r = output._trade_data['R multiples']
+r = output._trade_r_multiples
+r.plot.line(legend=None)
+plt.scatter(r_end.index, r_end, c='red')
+plt.show()
 # python -m idlelib.idle
