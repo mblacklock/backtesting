@@ -921,7 +921,17 @@ class Backtest:
             return long, short
 
         df = pd.DataFrame()
-        df['Equity'] = pd.Series(broker.log.equity).bfill().fillna(broker._cash)
+        dr = broker.log.trade_r_mults
+
+        eq = pd.concat([pd.Series(broker.log.equity).bfill().fillna(broker._cash), dr.sum(axis=1, min_count=1)], axis=1)
+        eq.columns = ['eq', 'tr']
+
+        for i in range(1, len(eq)):
+            if np.isnan(eq.iloc[i]['tr']):		
+                eq.iloc[i]['eq'] = eq.iloc[i-1]['eq']
+
+        df['Equity Orig'] = pd.Series(broker.log.equity).bfill().fillna(broker._cash)
+        df['Equity'] = eq['eq']
         equity = df.Equity.values
         df['Exit Entry'] = broker.log.exit_entry
         exits = df['Exit Entry']
@@ -935,9 +945,7 @@ class Backtest:
         df['Stop Loss'] = broker.log.stop_loss
         df['One R'] = broker.log.one_r
         df['R multiple'] = broker.log.r_mult_end 
-        df['R multiples'] = broker.log.r_mult
-
-        dr = broker.log.trade_r_mults
+        #df['R multiples'] = broker.log.r_mult      what does this do?
         
         r_mult = df['R multiple'].dropna()
         df['R multiple of longs'], df['R multiple of shorts'] = _long_short(position, r_mult)
@@ -951,7 +959,7 @@ class Backtest:
         dd_dur = df['Drawdown Duration']
 
         dd_r_dur, dd_r_peaks = _drawdown_duration_peaks(dd_r.dropna().values, data.index)
-        
+
         df.index = dr.index = data.index
 
         def _round_timedelta(value, _period=_data_period(df)):
@@ -984,19 +992,19 @@ class Backtest:
         pl = pl.dropna()
         
         s.loc['----------'] = '----------'
-        s.loc['System R multiple'] =  sum(df['R multiple'].dropna())
+        s.loc['System R multiple'] =  sum(r_mult)
         s.loc['R of longs'] = sum(df['R multiple of longs'].dropna())
         s.loc['R of shorts'] = sum(df['R multiple of shorts'].dropna())
-        s.loc['R min'] =  min(df['R multiple'].dropna())
-        s.loc['R max'] =  max(df['R multiple'].dropna())
-        s.loc['R stdev'] =  np.std(df['R multiple'].dropna())
+        s.loc['R min'] =  min(r_mult)
+        s.loc['R max'] =  max(r_mult)
+        s.loc['R stdev'] =  np.std(r_mult)
         s.loc['Mean R loss'] = r_mult.agg(lambda x: x[x<0].mean())
         s.loc['Mean R win'] = r_mult.agg(lambda x: x[x>0].mean())
-        s.loc['Expectancy VT'] =  np.mean(df['R multiple'].dropna())
-        s.loc['Expectunity'] =  np.mean(df['R multiple'].dropna()) * n_trades / float((s.End - s.Start).days / 365)
-        s.loc['SQN VT'] =  np.mean(df['R multiple'].dropna()) / np.std(df['R multiple'].dropna()) * np.sqrt(n_trades)
-        s.loc['SQN 100'] =  np.mean(df['R multiple'].dropna()) / np.std(df['R multiple'].dropna()) * 10
-        s.loc['SQN /year'] =  np.mean(df['R multiple'].dropna()) / np.std(df['R multiple'].dropna()) * np.sqrt(n_trades / float((s.End - s.Start).days / 365))
+        s.loc['Expectancy VT'] =  np.mean(r_mult)
+        s.loc['Expectunity'] =  np.mean(r_mult) * n_trades / float((s.End - s.Start).days / 365)
+        s.loc['SQN VT'] =  np.mean(r_mult) / max(np.std(r_mult), 0.01) * np.sqrt(n_trades)
+        s.loc['SQN 100'] =  np.mean(r_mult) / max(np.std(r_mult), 0.01) * 10
+        s.loc['SQN /year'] =  np.mean(r_mult) / max(np.std(r_mult), 0.01) * np.sqrt(n_trades / float((s.End - s.Start).days / 365))
 
         s.loc['_strategy'] = strategy
         s._trade_data = df  # Private API
@@ -1091,3 +1099,4 @@ class Backtest:
             superimpose=superimpose,
             show_legend=show_legend,
             open_browser=open_browser)
+
