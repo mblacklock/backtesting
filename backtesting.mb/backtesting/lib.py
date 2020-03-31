@@ -38,6 +38,28 @@ e.g.
     df.resample('4H', label='right').agg(OHLCV_AGG)
 """
 
+## MB's functions ############
+
+def fractional_change(arr):
+    series = arr.to_numpy()
+    out = []
+    for i in range(len(series)-1):
+        out.append(100 * (series[[i + 1]] - series[[i]]) / series[[i]])
+    return out
+
+def sqn(arr):
+    frac_change = fractional_change(arr)
+    return np.sqrt(len(frac_change)) * np.mean(frac_change) / np.std(frac_change)
+
+def test(arr):
+    return sum(arr)
+
+def SQN(arr: pd.Series, n: int) -> pd.Series:
+    out = pd.Series(arr).rolling(n).apply(lambda x: sqn(x))
+    return out
+
+#############################
+
 
 def barssince(condition: Sequence[bool], default=np.inf) -> int:
     """
@@ -337,7 +359,6 @@ class TrailingStrategy(Strategy):
                 self.orders.set_sl(self.data.Close[-1] - self.__atr[-1] * self.__n_atr)
             else:
                 self.orders.set_sl(self.data.Close[-1] + self.__atr[-1] * self.__n_atr)
-
 
 # NOTE: Don't put anything below this __all__ list
 

@@ -394,6 +394,11 @@ class Position:
         i = self._broker._position_open_i
         return i if i is None else self._broker._data.index[i]
 
+    @property
+    def open_i(self):
+        """i location of current position opening"""
+        return self._broker._position_open_i
+
     def _pl(self, price):
         open, size = self.open_price, self.size
         pl = (price - open) * size
