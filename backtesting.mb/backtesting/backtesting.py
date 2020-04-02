@@ -922,6 +922,8 @@ class Backtest:
 
         df = pd.DataFrame()
         dr = broker.log.trade_r_mults
+        if len(dr) == 0:
+            return 'no trades'
 
         eq = pd.concat([pd.Series(broker.log.equity).bfill().fillna(broker._cash), dr.sum(axis=1, min_count=1)], axis=1)
         eq.columns = ['eq', 'tr']
@@ -959,7 +961,7 @@ class Backtest:
         dd_dur = df['Drawdown Duration']
 
         dd_r_dur, dd_r_peaks = _drawdown_duration_peaks(dd_r.dropna().values, data.index)
-
+   
         df.index = dr.index = data.index
 
         def _round_timedelta(value, _period=_data_period(df)):

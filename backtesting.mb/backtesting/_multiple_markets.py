@@ -19,7 +19,7 @@ def compute_stats(output):
             return pd.Series(durations), pd.Series(peaks)
 
     indy_r_multiples = [s._trade_data['R multiple'].dropna()for s in output]
-    r_multiples = (pd.concat(indy_r_multiples).sort_index())
+    r_multiples = pd.concat(indy_r_multiples).sort_index()
     drawdown = np.maximum.accumulate(np.cumsum(r_multiples)) - np.cumsum(r_multiples)
     dd_dur, dd_peaks = _drawdown_duration_peaks(drawdown.dropna().values, drawdown.index)
     
@@ -32,6 +32,14 @@ def compute_stats(output):
     o.loc['Max. Trade Duration'] = max([s.loc['Max. Trade Duration'] for s in output])
     o.loc['Avg. Trade Duration'] = np.sum([s.loc['Avg. Trade Duration'] * s.loc['# Trades'] for s in output]) / n_trades
     o.loc['-'] = '----------'
+
+    market_sytem_r = [s.loc['System R multiple'] for s in output]
+    o.loc['Positive R markets [%]'] = sum(r > 0 for r in market_sytem_r) / len(output) * 100
+    o.loc['Max Market R'] = max(market_sytem_r)
+    o.loc['Min Market R'] = min(market_sytem_r)
+    o.loc['Avg. Market R'] = np.mean(market_sytem_r)
+    o.loc['Stdev Market R'] = np.std(market_sytem_r)
+    o.loc['--'] = '----------'
 
     o.loc['System R multiple'] =  sum([s.loc['System R multiple'] for s in output])
     o.loc['R of longs'] =  sum([s.loc['R of longs'] for s in output])
@@ -46,13 +54,13 @@ def compute_stats(output):
     o.loc['SQN'] =  np.mean(r_multiples) / np.std(r_multiples) * np.sqrt(n_trades)
     o.loc['SQN 100'] =  np.mean(r_multiples) / np.std(r_multiples) * 10
     o.loc['SQN /year'] =  np.mean(r_multiples) / np.std(r_multiples) * np.sqrt(n_trades / float((o.loc['End'] - o.loc['Start']).days / 365))
-    o.loc['--'] = '----------'
+    o.loc['---'] = '----------'
     
     o.loc['Max. Drawdown R'] = max_dd = - drawdown.max()
     o.loc['Avg. Drawdown R'] = - dd_peaks.mean()
     o.loc['Max. Drawdown Duration'] = dd_dur.max()
     o.loc['Avg. Drawdown Duration'] = dd_dur.mean()
-    o.loc['---'] = '----------'
+    o.loc['----'] = '----------'
     
     return o
 
@@ -61,11 +69,13 @@ import matplotlib.ticker as mtick
 
 def plot(output, files):
 
+    mkt_name = ['_'.join(file.split('_')[1:3]) for file in files]
+
     market_r_multiples = [s._trade_data['R multiple'].dropna()for s in output]
     r_multiples = pd.concat(market_r_multiples).sort_index()
     r_multiples_separate = pd.concat(market_r_multiples, axis=1).sort_index()
-    r_multiples_separate.columns = [file.replace(".csv","") for file in files]
-    sum_equity = pd.concat([s._trade_data['Equity'] - 10000 for s in output], axis=1).sum(axis=1)
+    r_multiples_separate.columns = mkt_name
+    sum_equity = pd.concat([s._trade_data['Equity'] - 10000 for s in output], axis=1).fillna(method='ffill').sum(axis=1)
     eq_pc = 100 * (sum_equity + 10000) / 10000
     
     trade_r_multiples = pd.concat([s._trade_r_multiples for s in output], axis=1)
