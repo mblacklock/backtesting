@@ -82,6 +82,9 @@ def plot(output, files):
     
     trade_r_multiples = pd.concat([s._trade_r_multiples for s in output], axis=1)
 
+    n_trades_active = trade_r_multiples.fillna(0).astype(bool).sum(axis=1)
+    pc_markets_active = 100 * n_trades_active / len(mkt_name)
+
     mae = trade_r_multiples.min().rename('MAE')
     mfe = trade_r_multiples.max().rename('MFE')
     mae[mae > 0] = 0
@@ -97,7 +100,7 @@ def plot(output, files):
     mfe_neg = excursions[excursions['R multiple'] < 0].abs()
     
     
-    fig, ax = plt.subplots(5, sharex=True)
+    fig, ax = plt.subplots(6, sharex=True)
     fig.tight_layout()
     [a.set_ylabel('R') for a in ax]
     ax[0].set_ylabel('Equity')
@@ -107,11 +110,15 @@ def plot(output, files):
     ax[2].set_title('Cumulative R multiple distribution (EOT)')
     ax[3].set_title('Market cumulative R multiple distribution (EOT)')
     ax[4].set_title('R multiple distributions within trades')
+    ax[5].set_title('Percentage of markets active')
+    ax[5].set_ylabel('Active Markets')
+    #ax[5].yaxis.set_major_formatter(mtick.PercentFormatter()) # when pc_markets_active
     eq_pc.plot(ax=ax[0])
     r_multiples.plot(ax=ax[1], marker='o', linestyle='None')
     r_multiples.cumsum().plot(ax=ax[2], marker='o')
     r_multiples_separate.cumsum().interpolate(method='linear').plot(ax=ax[3], marker='o')
     trade_r_multiples.plot(ax=ax[4], marker='o', legend=False)
+    n_trades_active.plot(ax=ax[5])
 
     fig2, ax2 = plt.subplots(2)
     fig2.tight_layout()
