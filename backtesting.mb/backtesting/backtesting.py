@@ -960,6 +960,9 @@ class Backtest:
         df['Drawdown Duration'] = dd_dur
         dd_dur = df['Drawdown Duration']
 
+        df['MAE of trades (R)'] = dr.min()
+        df['MFE of trades (R)'] = dr.max()
+
         dd_r_dur, dd_r_peaks = _drawdown_duration_peaks(dd_r.dropna().values, data.index)
    
         df.index = dr.index = data.index

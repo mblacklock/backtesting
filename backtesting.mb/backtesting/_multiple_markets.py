@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
 
 ## Multiple Markets Stats ##
 def compute_stats(output):
@@ -22,7 +23,7 @@ def compute_stats(output):
     r_multiples = pd.concat(indy_r_multiples).sort_index()
     drawdown = np.maximum.accumulate(np.cumsum(r_multiples)) - np.cumsum(r_multiples)
     dd_dur, dd_peaks = _drawdown_duration_peaks(drawdown.dropna().values, drawdown.index)
-    
+
     o = pd.Series()
     o.loc['Start'] = min([s.loc['Start'] for s in output])
     o.loc['End'] = max([s.loc['End'] for s in output])
@@ -44,8 +45,8 @@ def compute_stats(output):
     o.loc['System R multiple'] =  sum([s.loc['System R multiple'] for s in output])
     o.loc['R of longs'] =  sum([s.loc['R of longs'] for s in output])
     o.loc['R of shorts'] =  sum([s.loc['R of shorts'] for s in output])
-    o.loc['R min'] =  min([s.loc['R min'] for s in output])
-    o.loc['R max'] =  max([s.loc['R max'] for s in output])
+    o.loc['R min'] =  min(r_multiples)
+    o.loc['R max'] =  max(r_multiples)
     o.loc['R stdev'] =  np.std(r_multiples)
     o.loc['Mean R win'] =  r_multiples.agg(lambda x: x[x>0].mean())
     o.loc['Mean R loss'] =  r_multiples.agg(lambda x: x[x<0].mean())
@@ -72,7 +73,8 @@ def plot(output, files):
     mkt_name = ['_'.join(file.split('_')[1:3]) for file in files]
 
     market_r_multiples = [s._trade_data['R multiple'].dropna()for s in output]
-    r_multiples = pd.concat(market_r_multiples).sort_index()
+    r_multiples_unsorted = pd.concat(market_r_multiples)
+    r_multiples = r_multiples_unsorted.sort_index()
     r_multiples_separate = pd.concat(market_r_multiples, axis=1).sort_index()
     r_multiples_separate.columns = mkt_name
     sum_equity = pd.concat([s._trade_data['Equity'] - 10000 for s in output], axis=1).fillna(method='ffill').sum(axis=1)
@@ -80,6 +82,21 @@ def plot(output, files):
     
     trade_r_multiples = pd.concat([s._trade_r_multiples for s in output], axis=1)
 
+    mae = trade_r_multiples.min().rename('MAE')
+    mfe = trade_r_multiples.max().rename('MFE')
+    mae[mae > 0] = 0
+    mfe[mfe < 0] = 0
+
+    excursions = pd.concat([r_multiples_unsorted.reset_index(drop=True), mae.reset_index(drop=True), mfe.reset_index(drop=True)], axis=1)
+    excursions.index = r_multiples_unsorted.index
+    
+    mae_pos = excursions[excursions['R multiple'] > 0].abs()
+    mae_neg = excursions[excursions['R multiple'] < 0].abs()
+
+    mfe_pos = excursions[excursions['R multiple'] > 0].abs()
+    mfe_neg = excursions[excursions['R multiple'] < 0].abs()
+    
+    
     fig, ax = plt.subplots(5, sharex=True)
     fig.tight_layout()
     [a.set_ylabel('R') for a in ax]
@@ -95,6 +112,19 @@ def plot(output, files):
     r_multiples.cumsum().plot(ax=ax[2], marker='o')
     r_multiples_separate.cumsum().interpolate(method='linear').plot(ax=ax[3], marker='o')
     trade_r_multiples.plot(ax=ax[4], marker='o', legend=False)
+
+    fig2, ax2 = plt.subplots(2)
+    fig2.tight_layout()
+    ax2[0].set_title('MAE')
+    ax2[1].set_title('MFE')
+    line0 = mlines.Line2D([0, max(mae.abs())], [0, max(mae.abs())], c='k', ls='--')
+    line1 = mlines.Line2D([0, max(mfe)], [0, max(mfe)], c='k', ls='--')
+    ax2[0].add_line(line0)
+    ax2[1].add_line(line1)
+    mae_pos.plot.scatter(ax=ax2[0], x='MAE', y='R multiple', c='g')
+    mae_neg.plot.scatter(ax=ax2[0], x='MAE', y='R multiple', c='r')
+    mfe_pos.plot.scatter(ax=ax2[1], x='MFE', y='R multiple', c='g')
+    mfe_neg.plot.scatter(ax=ax2[1], x='MFE', y='R multiple', c='r')
     
     return plt.show()
 
