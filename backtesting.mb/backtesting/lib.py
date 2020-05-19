@@ -17,8 +17,11 @@ from numbers import Number
 from inspect import currentframe
 from typing import Sequence, Optional, Union, Callable
 
+from csv import writer
+
 import numpy as np
 import pandas as pd
+import tulipy as ti
 
 from .backtesting import Strategy
 from ._plotting import plot_heatmaps as _plot_heatmaps
@@ -44,19 +47,21 @@ def fractional_change(arr):
     series = arr.to_numpy()
     out = []
     for i in range(len(series)-1):
-        out.append(100 * (series[[i + 1]] - series[[i]]) / series[[i]])
+        out.append(100 * (series[i + 1] - series[i]) / series[i])
     return out
 
 def sqn(arr):
     frac_change = fractional_change(arr)
     return np.sqrt(len(frac_change)) * np.mean(frac_change) / np.std(frac_change)
 
-def test(arr):
-    return sum(arr)
-
 def SQN(arr: pd.Series, n: int) -> pd.Series:
     out = pd.Series(arr).rolling(n).apply(lambda x: sqn(x))
     return out
+
+def write_to_csv(line):
+    with open('trades.csv','a', newline='') as fd:
+        csv_writer = writer(fd)
+        csv_writer.writerow(line)
 
 #############################
 

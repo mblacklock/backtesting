@@ -437,9 +437,9 @@ class Position:
         """True if the position is short (position size is negative)."""
         return self.size < 0
 
-    def close(self):
+    def close(self, exit_type=None):
         """Close the position at current market price."""
-        self._broker.close()
+        self._broker.close(exit_type=exit_type)
 
     def __repr__(self):
         return '<Position: %d>' % self.size
@@ -464,6 +464,7 @@ class _Broker:
             self.r_mult_end = np.tile(np.nan, length)
             self.r_mult_temp = np.tile(np.nan, length)
             self.trade_r_mults = pd.DataFrame()
+            self.exit_type = np.tile(np.nan, length)
 
     def __init__(self, *, data, cash, commission, margin, trade_on_close, length):
         assert 0 < cash, "cash should be >0, is {}".format(cash)
@@ -493,9 +494,9 @@ class _Broker:
         assert (tp or -np.inf) <= (price or self.last_close) <= (sl or np.inf), "For short orders should be: TP ({}) < BUY PRICE ({}) < SL ({})".format(tp, price or self.last_close, sl)  # noqa: E501
         self.orders._update(price, sl, tp, is_long=False)
 
-    def close(self):
+    def close(self, exit_type=None):
         self.orders.cancel()
-        self.orders._close = True
+        self.orders._close = exit_type
 
     def _get_market_price(self, price):
         i = self._i
@@ -531,7 +532,7 @@ class _Broker:
         self.log.one_r[i] = one_r
         self.log.r_mult[i] = one_r
 
-    def _close_position(self, price=None):
+    def _close_position(self, price=None, exit_type=None):
         if not self._position:
             return
 
@@ -550,6 +551,7 @@ class _Broker:
         self.log.exit_entry[i] = self._position_open_i
         self.log.exit_price[i] = price
         self.log.exit_position[i] = self._position
+        self.log.exit_type[i] = exit_type
 
         self._cash += pl
         self._position = 0
@@ -571,7 +573,7 @@ class _Broker:
             open, high, low = data.Open[-1], data.High[-1], data.Low[-1]
     
             if entry or orders._close:
-                self._close_position()
+                self._close_position(exit_type=orders._close)
                 orders._close = False
 
             # Check if stop-loss threshold was hit
@@ -581,7 +583,7 @@ class _Broker:
                                   not is_long and open >= sl) else
                          None)                                     # not hit
                 if price is not None:
-                    self._close_position(price)
+                    self._close_position(price, exit_type=1)
                     self.orders.cancel()
 
             # Check if take-profit threshold was hit
@@ -948,6 +950,7 @@ class Backtest:
         df['One R'] = broker.log.one_r
         df['R multiple'] = broker.log.r_mult_end 
         #df['R multiples'] = broker.log.r_mult      what does this do?
+        df['Exit Type'] = broker.log.exit_type        
         
         r_mult = df['R multiple'].dropna()
         df['R multiple of longs'], df['R multiple of shorts'] = _long_short(position, r_mult)

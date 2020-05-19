@@ -81,7 +81,8 @@ def plot(output, files):
     eq_pc = 100 * (sum_equity + 10000) / 10000
     
     trade_r_multiples = pd.concat([s._trade_r_multiples for s in output], axis=1)
-
+    trade_r_multiples.columns = list(range(len(trade_r_multiples.columns)))
+    
     n_trades_active = trade_r_multiples.fillna(0).astype(bool).sum(axis=1)
     pc_markets_active = 100 * n_trades_active / len(mkt_name)
 
@@ -117,7 +118,7 @@ def plot(output, files):
     r_multiples.plot(ax=ax[1], marker='o', linestyle='None')
     r_multiples.cumsum().plot(ax=ax[2], marker='o')
     r_multiples_separate.cumsum().interpolate(method='linear').plot(ax=ax[3], marker='o')
-    trade_r_multiples.plot(ax=ax[4], marker='o', legend=False)
+    trade_r_multiples.plot(ax=ax[4], legend=False)
     n_trades_active.plot(ax=ax[5])
 
     fig2, ax2 = plt.subplots(2)
