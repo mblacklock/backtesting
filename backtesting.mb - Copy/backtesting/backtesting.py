@@ -420,6 +420,23 @@ class Position:
         return self._r_mult(self._broker._data.Close[-1])
 
     @property
+    def pl_mae(self):
+        """Intra-bar extreme profit (positive) or loss (negative) of current position."""
+        if self.size > 0:
+            return self._pl(self._broker._data.Low[-1])
+        if self.size < 0:
+            return self._pl(self._broker._data.High[-1])
+    
+    def _intra_mae(self):
+        pl, size, one_r = self.pl_mae, self.size, self._broker._position_one_r
+        return pl / abs(size * one_r)
+
+    @property
+    def intra_mae(self):
+        """MAE intra-bar R multiple of current position."""
+        return self._intra_mae()
+
+    @property
     def pl_pct(self):
         """
         Profit (positive) or loss (negative) of current position,
@@ -463,7 +480,9 @@ class _Broker:
             self.r_mult = np.tile(np.nan, length)
             self.r_mult_end = np.tile(np.nan, length)
             self.r_mult_temp = np.tile(np.nan, length)
+            self.intra_mae_temp = np.tile(np.nan, length)
             self.trade_r_mults = pd.DataFrame()
+            self.intra_mae = np.tile(np.nan, length)
             self.exit_type = np.tile(np.nan, length)
 
     def __init__(self, *, data, cash, commission, margin, trade_on_close, length):
@@ -541,12 +560,14 @@ class _Broker:
         r_multiple = self.position._r_mult(price)
 
         self.log.pl[i] = pl
-        
         self.log.r_mult_end[i] = r_multiple
         self.log.r_mult[i] = r_multiple
-        self.log.r_mult_temp[i] = r_multiple
+        self.log.r_mult_temp[i] = r_multiple.astype(np.float32)
+        self.log.intra_mae_temp[i] = self.position.intra_mae
         self.log.trade_r_mults[len(self.log.trade_r_mults.columns)] = self.log.r_mult_temp
+        self.log.intra_mae[i] = np.nanmin(self.log.intra_mae_temp)
         self.log.r_mult_temp = np.tile(np.nan, self.log.r_mult_temp.size)
+        self.log.intra_mae_temp = np.tile(np.nan, self.log.intra_mae_temp.size)
         
         self.log.exit_entry[i] = self._position_open_i
         self.log.exit_price[i] = price
@@ -605,7 +626,8 @@ class _Broker:
             # Log R multiple
                 r_mult = self.position.r_mult
                 self.log.r_mult[i] = r_mult
-                self.log.r_mult_temp[i] = r_mult
+                self.log.r_mult_temp[i] = r_mult.astype(np.float32)
+                self.log.intra_mae_temp[i] = self.position.intra_mae
 
         # Log account equity for the equity curve
         equity = self.equity
@@ -966,6 +988,8 @@ class Backtest:
         df['MAE of trades (R)'] = dr.min()
         df['MFE of trades (R)'] = dr.max()
 
+        df['MAE of trades intra-bar (R)'] = broker.log.intra_mae
+
         dd_r_dur, dd_r_peaks = _drawdown_duration_peaks(dd_r.dropna().values, data.index)
    
         df.index = dr.index = data.index
@@ -1013,6 +1037,8 @@ class Backtest:
         s.loc['SQN VT'] =  np.mean(r_mult) / max(np.std(r_mult), 0.01) * np.sqrt(n_trades)
         s.loc['SQN 100'] =  np.mean(r_mult) / max(np.std(r_mult), 0.01) * 10
         s.loc['SQN /year'] =  np.mean(r_mult) / max(np.std(r_mult), 0.01) * np.sqrt(n_trades / float((s.End - s.Start).days / 365))
+
+        s.loc['Annual Return/Drawdown ratio'] = - s.loc['Expectunity'] / max(1., max_dd)
 
         s.loc['_strategy'] = strategy
         s._trade_data = df  # Private API

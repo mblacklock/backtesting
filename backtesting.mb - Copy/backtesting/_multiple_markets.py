@@ -62,6 +62,8 @@ def compute_stats(output):
     o.loc['Max. Drawdown Duration'] = dd_dur.max()
     o.loc['Avg. Drawdown Duration'] = dd_dur.mean()
     o.loc['----'] = '----------'
+
+    o.loc['Annual Return/Drawdown ratio'] = - o.loc['Expectunity'] / max_dd
     
     return o
 
@@ -99,7 +101,21 @@ def plot(output, files):
 
     mfe_pos = excursions[excursions['R multiple'] > 0].abs()
     mfe_neg = excursions[excursions['R multiple'] < 0].abs()
+
+    mae_intra = pd.concat([s._trade_data['MAE of trades intra-bar (R)'].dropna() for s in output])
+    mae_intra[mae_intra > 0] = 0
+    mae_intra = mae_intra.rename('MAE intra')
+
+    excursions_i = pd.concat([r_multiples_unsorted.reset_index(drop=True), mae_intra.reset_index(drop=True)], axis=1)
+    excursions_i.index = r_multiples_unsorted.index
     
+    mae_pos_i = excursions_i[excursions_i['R multiple'] > 0].abs()
+    mae_neg_i = excursions_i[excursions_i['R multiple'] < 0].abs()
+
+    mae_trade_vs_intra = pd.concat([r_multiples_unsorted.reset_index(drop=True), mae.reset_index(drop=True), mae_intra.reset_index(drop=True)], axis=1)
+    mae_trade_vs_intra.index = r_multiples_unsorted.index
+    mae_trade_vs_intra_pos = mae_trade_vs_intra[mae_trade_vs_intra['R multiple'] > 0].abs()
+    mae_trade_vs_intra_neg = mae_trade_vs_intra[mae_trade_vs_intra['R multiple'] < 0].abs()
     
     fig, ax = plt.subplots(6, sharex=True)
     fig.tight_layout()
@@ -121,18 +137,28 @@ def plot(output, files):
     trade_r_multiples.plot(ax=ax[4], legend=False)
     n_trades_active.plot(ax=ax[5])
 
-    fig2, ax2 = plt.subplots(2)
+    fig2, ax2 = plt.subplots(4)
     fig2.tight_layout()
     ax2[0].set_title('MAE')
     ax2[1].set_title('MFE')
+    ax2[2].set_title('MAE intra')
+    ax2[3].set_title('MAE vs MAE intra')
     line0 = mlines.Line2D([0, max(mae.abs())], [0, max(mae.abs())], c='k', ls='--')
     line1 = mlines.Line2D([0, max(mfe)], [0, max(mfe)], c='k', ls='--')
+    line2 = mlines.Line2D([0, max(mae_intra.abs())], [0, max(mae_intra.abs())], c='k', ls='--')
+    line3 = mlines.Line2D([0, max(mae_intra.abs())], [0, max(mae_intra.abs())], c='k', ls='--')
     ax2[0].add_line(line0)
     ax2[1].add_line(line1)
+    ax2[2].add_line(line2)
+    ax2[3].add_line(line3)
     mae_pos.plot.scatter(ax=ax2[0], x='MAE', y='R multiple', c='g')
     mae_neg.plot.scatter(ax=ax2[0], x='MAE', y='R multiple', c='r')
     mfe_pos.plot.scatter(ax=ax2[1], x='MFE', y='R multiple', c='g')
     mfe_neg.plot.scatter(ax=ax2[1], x='MFE', y='R multiple', c='r')
+    mae_pos_i.plot.scatter(ax=ax2[2], x='MAE intra', y='R multiple', c='g')
+    mae_neg_i.plot.scatter(ax=ax2[2], x='MAE intra', y='R multiple', c='r')
+    mae_trade_vs_intra_pos.plot.scatter(ax=ax2[3], x='MAE intra', y='MAE', c='g')
+    mae_trade_vs_intra_neg.plot.scatter(ax=ax2[3], x='MAE intra', y='MAE', c='r')
     
     return plt.show()
 

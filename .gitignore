@@ -1,4 +1,4 @@
-env
+virtualenv
 __pycache__
 *.pyc
 *.html

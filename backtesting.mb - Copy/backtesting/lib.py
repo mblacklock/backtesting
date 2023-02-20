@@ -17,8 +17,6 @@ from numbers import Number
 from inspect import currentframe
 from typing import Sequence, Optional, Union, Callable
 
-from csv import writer
-
 import numpy as np
 import pandas as pd
 import tulipy as ti
@@ -57,11 +55,6 @@ def sqn(arr):
 def SQN(arr: pd.Series, n: int) -> pd.Series:
     out = pd.Series(arr).rolling(n).apply(lambda x: sqn(x))
     return out
-
-def write_to_csv(line):
-    with open('trades.csv','a', newline='') as fd:
-        csv_writer = writer(fd)
-        csv_writer.writerow(line)
 
 #############################
 
