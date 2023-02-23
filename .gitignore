@@ -3,4 +3,6 @@ __pycache__
 *.pyc
 *.html
 systems
+data
 data/data_files
+data/data_1min

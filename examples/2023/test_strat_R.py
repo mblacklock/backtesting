@@ -8,6 +8,10 @@ from backtesting.lib import crossover, plot_heatmaps, resample_apply, barssince
 from backtesting.test import GOOG
 
 factor = 1_000_000
+GOOG['Open'] /= factor
+GOOG['High'] /= factor
+GOOG['Low'] /= factor
+GOOG['Close'] /= factor
 
 class RsiOscillator(Strategy):
 
@@ -21,6 +25,7 @@ class RsiOscillator(Strategy):
 
     # Step through bars one by one
     # Note that multiple buys are a thing here
+    # MB - Any dollar amounts must be divided by factor
     def next(self):
 
         price = self.data.Close[-1]
@@ -29,23 +34,20 @@ class RsiOscillator(Strategy):
             self.position.close()
                 
         elif crossover(self.daily_rsi, self.lower_bound) and not self.position:
-            stop = price - 30
+            stop = price - 30/factor
             oneR = abs(price - stop)
-            size =  round(1 / oneR * factor)
-            self.buy(size=size,sl=stop)
+            self.buy(size=1, sl=stop, tag=oneR)
 
-bt = Backtest(GOOG, RsiOscillator, cash=100 * factor, commission=0)
+bt = Backtest(GOOG, RsiOscillator, cash=100, commission=0)
 
 stats = bt.run()
-bt.plot(factor=factor)
+bt.plot()
 
-stats['Equity Final [$]'] /= factor
-stats['Equity Peak [$]'] /= factor
-stats['Best Trade [R]'] /= factor
-stats['Worst Trade [R]'] /= factor
-stats['Expectancy (mean R)'] /= factor
 trades = stats['_trades'].drop('ReturnPct', axis=1)
-trades.Size /= factor
-trades.PnL /= factor
+trades.EntryPrice *= factor
+trades.ExitPrice *= factor
+trades.StopLoss *= factor
+trades.oneR *= factor
+
 print(stats)
 print(trades.to_string())
