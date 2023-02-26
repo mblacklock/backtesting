@@ -1,0 +1,17 @@
+Init Git first, clone from https://github.com/mblacklock/backtesting.git
+
+delete my backtesting.py and then clone backtesting.py from https://github.com/kernc/backtesting.py.git
+git clone scikit-optimize repo
+
+Then create virtual env
+
+cd to backtesting.py and pip install -e .
+cd to scikit-optimize and pip install -e .
+
+pip install TA-Lib file:TA-Lib...
+
+Install requirements
+
+git grep 'mse' -- scikit-optimize replace all instances of "mse" with "squared_error"
+
+git grep 'np.int' -- scikit-optimize replace all instances of "np.int" with "np.int32"
