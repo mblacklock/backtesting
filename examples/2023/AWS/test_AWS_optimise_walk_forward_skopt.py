@@ -115,16 +115,16 @@ def walk_forward(
         with open(str('finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_trades.txt'), 'w') as f:
             f.write(trades.to_string())
 
-        # plot skopt
-        _ = plot_objective(optimize_result, n_points=10)
-        figure=_.flatten()[0].figure
-        figure.set_size_inches(12,12)
-        figure.savefig('finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_plot_objective.png', dpi=300)
-
-        _ = plot_evaluations(optimize_result, bins=10)
-        figure=_.flatten()[0].figure
-        figure.set_size_inches(12,12)
-        figure.savefig('finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_plot_evaluations.png', dpi=300)
+##        # plot skopt
+##        _ = plot_objective(optimize_result, n_points=10)
+##        figure=_.flatten()[0].figure
+##        figure.set_size_inches(12,12)
+##        figure.savefig('finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_plot_objective.png', dpi=300)
+##
+##        _ = plot_evaluations(optimize_result, bins=10)
+##        figure=_.flatten()[0].figure
+##        figure.set_size_inches(12,12)
+##        figure.savefig('finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_plot_evaluations.png', dpi=300)
 
         # return
         parameters_training_all.append([stats_training._strategy.lower_bound, stats_training._strategy.upper_bound, stats_training._strategy.rsi_window])
@@ -133,7 +133,6 @@ def walk_forward(
         
     return parameters_training_all, trades_training_all, stats_training_all
 
-print('Training finished. Running out of sample.')
 lookback_bars = int(len(data) / 5)
 validation_bars = int(len(data) / 10)
 parameters, trades_training, stats_training = walk_forward(
@@ -142,7 +141,6 @@ parameters, trades_training, stats_training = walk_forward(
     lookback_bars=lookback_bars,
     validation_bars=validation_bars,
 )
-print('Finished.')
 
 def walk_forward_live(
     strategy,
@@ -228,12 +226,14 @@ def walk_forward_live(
         
     return trades, stats_live
 
+print('Training finished. Running out of sample.')
 trades, stats = walk_forward_live(
     Base_Strategy,
     data,
     lookback_bars=lookback_bars,
     validation_bars=validation_bars
 )
+print('Finished.')
 
 def plot_period_graph(
     data,
