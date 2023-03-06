@@ -99,32 +99,32 @@ def walk_forward(
         trades.PnL = round(trades.PnL,2)
         trades.OneR = round(trades.OneR * factor,2)
         
-##        if not os.path.exists('finished_runs/training'):
-##            os.mkdir('finished_runs/training')
-##        strategy_name = str(stats_training._strategy)
-##        start_str = start.strftime("%Y-%m-%d %H-%M")
-##        end_str = end.strftime("%Y-%m-%d %H-%M")
-##        # Export stats summary & trades plot
-##        with open('finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_summary.txt', 'w') as f:
-##            f.write(str(stats_training))
+        if not os.path.exists('finished_runs/training'):
+            os.mkdir('finished_runs/training')
+        strategy_name = str(stats_training._strategy)
+        start_str = start.strftime("%Y-%m-%d %H-%M")
+        end_str = end.strftime("%Y-%m-%d %H-%M")
+        # Export stats summary & trades plot
+        with open('finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_summary.txt', 'w') as f:
+            f.write(str(stats_training))
 ##            
 ##        bt_training.plot(filename='finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_trades_plot', open_browser=False)
-##        plot_heatmaps(heatmap, agg="mean", open_browser=False, filename='finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_heatmaps_plot')
+        plot_heatmaps(heatmap, agg="mean", open_browser=False, filename='finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_heatmaps_plot')
 ##        
-##        # Export trades
-##        with open(str('finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_trades.txt'), 'w') as f:
-##            f.write(trades.to_string())
-##
-##        # plot skopt
-##        _ = plot_objective(optimize_result, n_points=10)
-##        figure=_.flatten()[0].figure
-##        figure.set_size_inches(12,12)
-##        figure.savefig('finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_plot_objective.png', dpi=300)
-##
-##        _ = plot_evaluations(optimize_result, bins=10)
-##        figure=_.flatten()[0].figure
-##        figure.set_size_inches(12,12)
-##        figure.savefig('finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_plot_evaluations.png', dpi=300)
+        # Export trades
+        with open(str('finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_trades.txt'), 'w') as f:
+            f.write(trades.to_string())
+
+        # plot skopt
+        _ = plot_objective(optimize_result, n_points=10)
+        figure=_.flatten()[0].figure
+        figure.set_size_inches(12,12)
+        figure.savefig('finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_plot_objective.png', dpi=300)
+
+        _ = plot_evaluations(optimize_result, bins=10)
+        figure=_.flatten()[0].figure
+        figure.set_size_inches(12,12)
+        figure.savefig('finished_runs/training/' + start_str + '_' + end_str + '_' + strategy_name +'_plot_evaluations.png', dpi=300)
 
         # return
         parameters_training_all.append([stats_training._strategy.lower_bound, stats_training._strategy.upper_bound, stats_training._strategy.rsi_window])
@@ -133,6 +133,7 @@ def walk_forward(
         
     return parameters_training_all, trades_training_all, stats_training_all
 
+print('Training finished. Running out of sample.')
 lookback_bars = int(len(data) / 5)
 validation_bars = int(len(data) / 10)
 parameters, trades_training, stats_training = walk_forward(
@@ -141,6 +142,7 @@ parameters, trades_training, stats_training = walk_forward(
     lookback_bars=lookback_bars,
     validation_bars=validation_bars,
 )
+print('Finished.')
 
 def walk_forward_live(
     strategy,
