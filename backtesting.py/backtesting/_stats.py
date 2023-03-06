@@ -68,6 +68,7 @@ def compute_stats(
             'EntryTime': [t.entry_time for t in trades],
             'ExitTime': [t.exit_time for t in trades],
             'OneR': [t.tag[0] for t in trades],
+            'Params': [t.tag[3] for t in trades],
         })
         trades_df['Duration'] = trades_df['ExitTime'] - trades_df['EntryTime']
     del trades
@@ -142,9 +143,13 @@ def compute_stats(
     s.loc['Worst Trade [R]'] = combined_pl.min()
     s.loc['Expectancy (mean R)'] = combined_pl.mean()
     s.loc['Profit Factor'] = combined_pl[combined_pl > 0].sum() / (abs(combined_pl[combined_pl < 0].sum()) or np.nan)  # noqa: E501
-    s.loc['SQN'] = np.sqrt(n_trades) * combined_pl.mean() / (combined_pl.std() or np.nan)
-    s.loc['SQN100'] = np.sqrt(100) * combined_pl.mean() / (combined_pl.std() or np.nan)
-    
+    SQN_N = np.sqrt(n_trades) * combined_pl.mean() / (combined_pl.std() or np.nan)
+    SQN_100 = np.sqrt(100) * combined_pl.mean() / (combined_pl.std() or np.nan)
+    if n_trades < 100:
+        s.loc['SQN'] = SQN_N
+    else:
+        s.loc['SQN'] = SQN_100
+        
     ''' Original code
     ''' 
     '''s.loc['# Trades'] = n_trades = len(trades_df)
