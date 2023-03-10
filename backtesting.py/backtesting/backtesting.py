@@ -1489,7 +1489,7 @@ class Backtest:
             # Avoid recomputing re-evaluations:
             # "The objective has been evaluated at this point before."
             # https://github.com/scikit-optimize/scikit-optimize/issues/302
-            memoized_run = lru_cache()(lambda tup: self.run(**dict(tup)))
+            memoized_run = lru_cache()(lambda tup: -maximize(self.run(**dict(tup))))
 
             # np.inf/np.nan breaks sklearn, np.finfo(float).max breaks skopt.plots.plot_objective
             INVALID = 1e300
@@ -1502,8 +1502,7 @@ class Backtest:
                 # TODO: Adjust after https://github.com/scikit-optimize/scikit-optimize/pull/971
                 if not constraint(AttrDict(params)):
                     return INVALID
-                res = memoized_run(tuple(params.items()))
-                value = -maximize(res)
+                value = memoized_run(tuple(params.items()))
                 if np.isnan(value):
                     return INVALID
                 return value
