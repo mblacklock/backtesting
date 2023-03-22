@@ -5,7 +5,7 @@ cwd = os.getcwd()
 if 'home' in cwd:
     path = '/home/mblacklock/backtesting/'
 else:
-    path = 'D:/Documents/Backtesting/'
+    path = 'D:/Data/Documents/Backtesting/'
 
 
 def _read_file(filename):
