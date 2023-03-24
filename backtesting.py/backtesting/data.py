@@ -39,4 +39,37 @@ def _read_file(filename):
     
     return data
 
+def import_data(symbol, bar_size, factor):
+    from os.path import dirname, join
+    
+    directory = path + 'data/data_1min/'
+    
+    filename = [f for f in os.listdir(directory) if symbol in f][0]
+    
+    data = pd.read_csv(directory + filename,
+                       usecols = [0,1,2,3,4,5],
+                       names = ["Date","Open","High","Low","Close","Volume"])
+    
+    data["Date"] = pd.to_datetime(data["Date"], unit = "ms")
+    data.set_index("Date", inplace=True)
+
+    # Resample data to required bar size
+    data = data.resample(bar_size).agg({
+        'Open': 'first',
+        'High': 'max',
+        'Low': 'min',
+        'Close': 'last',
+        'Volume': 'sum'
+    })
+
+    # Interpolate to fill in NaN values
+    data = data.interpolate()
+
+    data['Open'] /= factor
+    data['High'] /= factor
+    data['Low'] /= factor
+    data['Close'] /= factor
+    
+    return data
+
 BTCUSDT = _read_file('data/data_1min/BTCUSDT-1m-2017-08-2023-01.csv')
